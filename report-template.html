@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Product Review Research Report</title>
+<script src="reviews.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1d1d1f; }
+.header { background: #1d1d1f; color: white; padding: 28px 36px; }
+.header h1 { font-size: 26px; font-weight: 700; }
+.header h1 span { color: #ff9f0a; }
+.header .sub { color: #aeaeb2; font-size: 13px; margin-top: 5px; }
+.summary-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #d2d2d7; border-bottom: 1px solid #d2d2d7; }
+.stat { background: white; padding: 18px 24px; }
+.stat .label { font-size: 10px; color: #6e6e73; text-transform: uppercase; letter-spacing: .05em; }
+.stat .value { font-size: 24px; font-weight: 600; margin-top: 4px; }
+.stat .hint { font-size: 11px; color: #6e6e73; margin-top: 2px; }
+.section { padding: 28px 36px; }
+.sec-title { font-size: 17px; font-weight: 600; margin-bottom: 18px; display: flex; align-items: center; gap: 10px; }
+.pill { font-size: 11px; padding: 2px 9px; border-radius: 10px; font-weight: 500; color: white; }
+.pill-red { background: #ff3b30; }
+.pill-green { background: #34c759; }
+.pill-dark { background: #636366; }
+.strip { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 1px 3px rgba(0,0,0,.07); border: 1px solid #e5e5ea; position: relative; overflow: hidden; }
+.product-card { min-height: 252px; }
+.card-img { width: 100%; height: 108px; object-fit: contain; border-radius: 8px; background: #f5f5f7; border: 1px solid #e5e5ea; margin-bottom: 12px; }
+.card-title { font-size: 13px; font-weight: 600; line-height: 1.35; }
+.card-title a { color: #0071e3; text-decoration: none; }
+.card-title a:hover { text-decoration: underline; }
+.tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 9px; }
+.tag { font-size: 11px; padding: 2px 8px; border-radius: 6px; background: #f5f5f7; color: #3a3a3c; }
+.tag-sales { background: #e8f4fd; color: #004d8c; }
+.tag-none { background: #f5f0ff; color: #5a2d8a; }
+.tag-red { background: #fff0f0; color: #a8071a; }
+.tag-green { background: #dff4e4; color: #1a6b30; }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.theme-list { display: grid; gap: 14px; }
+.theme-card.red { border-top: 3px solid #ff3b30; }
+.theme-card.green { border-top: 3px solid #34c759; }
+.theme-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+.theme-name { font-size: 15px; font-weight: 700; line-height: 1.3; }
+.theme-desc { font-size: 13px; color: #3a3a3c; line-height: 1.5; margin-top: 7px; }
+.meta { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 11px; }
+.bar-wrap { height: 7px; border-radius: 99px; background: #f2f2f7; overflow: hidden; margin-top: 12px; }
+.bar { height: 100%; border-radius: 99px; min-width: 5%; }
+.bar.red { background: #ff3b30; }
+.bar.green { background: #34c759; }
+blockquote { margin-top: 12px; padding: 10px 12px; border-left: 3px solid #d2d2d7; background: #f8f8fa; border-radius: 0 8px 8px 0; }
+blockquote p { font-size: 12px; line-height: 1.45; color: #1d1d1f; }
+blockquote footer { font-size: 11px; color: #6e6e73; margin-top: 6px; }
+.empty { background: white; border-radius: 14px; border: 1px solid #e5e5ea; padding: 18px; color: #6e6e73; font-size: 13px; }
+.brief { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.brief ul { margin-left: 18px; margin-top: 8px; color: #3a3a3c; font-size: 13px; line-height: 1.55; }
+.brief li + li { margin-top: 5px; }
+.angle { grid-column: 1 / -1; background: #fff8e6; border: 1px solid #ffe066; border-radius: 10px; padding: 14px 18px; font-size: 13px; line-height: 1.55; color: #7d5c00; }
+.footer { padding: 22px 36px; border-top: 1px solid #e5e5ea; background: white; font-size: 11px; color: #6e6e73; line-height: 1.7; }
+.verdict { border-radius: 14px; padding: 20px 24px; display: flex; gap: 22px; align-items: center; color: #fff; }
+.verdict.v-go { background: #1a7f37; } .verdict.v-watch { background: #9a6700; } .verdict.v-skip { background: #b42318; }
+.v-call { font-size: 34px; font-weight: 800; letter-spacing: .02em; white-space: nowrap; }
+.v-reasons ul { margin-left: 18px; } .v-reasons li { font-size: 13px; line-height: 1.5; }
+.muted { color: #6e6e73; font-size: 12px; margin-top: 10px; }
+.tag-kw { background: #eef6ff; color: #0b5cad; }
+.tag-bsr { background: #f3f0ff; color: #5a2d8a; }
+.kw-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px; overflow: hidden; border: 1px solid #e5e5ea; }
+.kw-table th, .kw-table td { text-align: left; padding: 10px 14px; font-size: 13px; border-bottom: 1px solid #f0f0f2; }
+.kw-table th { background: #fafafa; color: #6e6e73; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+.kw-table td:nth-child(2), .kw-table th:nth-child(2) { text-align: right; white-space: nowrap; }
+.kw-table tr:last-child td { border-bottom: none; }
+@media (max-width: 820px) {
+  .summary-bar, .two-col, .brief { grid-template-columns: 1fr; }
+  .header, .section, .footer { padding-left: 18px; padding-right: 18px; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <p style="padding:40px;color:#6e6e73;font-size:14px;">Loading reviews.js... Make sure report.html and reviews.js are in the same folder.</p>
+</div>
+
+<script>
+(function () {
+  const D = window.__REVIEW_DATA__;
+  if (!D) return;
+
+  const esc = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  const num = v => Number.isFinite(Number(v)) ? Number(v) : null;
+  const fmtInt = v => num(v) == null ? 'N/A' : Math.round(Number(v)).toLocaleString();
+  const fmtUsd = v => num(v) == null ? 'N/A' : '$' + Math.round(Number(v)).toLocaleString();
+  const short = (s, n) => {
+    s = String(s ?? '');
+    return s.length > n ? s.slice(0, n - 1).trim() + '...' : s;
+  };
+  const products = Array.isArray(D.products) ? D.products : [];
+  const complaints = Array.isArray(D.complaintThemes) ? D.complaintThemes : [];
+  const praises = Array.isArray(D.praiseThemes) ? D.praiseThemes : [];
+  const totals = D.totals || {};
+  const opp = D.opportunity || {};
+  const sortedProducts = [...products].sort((a,b) => {
+    const au = num(a.units30d), bu = num(b.units30d);
+    if ((bu || 0) !== (au || 0)) return (bu || 0) - (au || 0);
+    return (num(b.reviewCount) || 0) - (num(a.reviewCount) || 0);
+  });
+  const topComplaint = Math.max(1, ...complaints.map(t => num(t.mentions) || 0));
+  const topPraise = Math.max(1, ...praises.map(t => num(t.mentions) || 0));
+  const totalReviews = num(totals.reviewsAnalyzed) ?? ((num(totals.critical) || 0) + (num(totals.positive) || 0));
+  const covered = num(totals.productsCovered) ?? products.length;
+  const hasSales = products.some(p => p.salesSource === 'helium10');
+  const market = D.market || null;
+  const verdict = D.verdict || null;
+  const keywords = D.keywords || null;
+  const vcall = verdict && verdict.call ? String(verdict.call).toUpperCase() : null;
+  const vclass = vcall === 'GO' ? 'v-go' : vcall === 'SKIP' ? 'v-skip' : 'v-watch';
+
+  function productCard(p) {
+    const sales = p.salesSource === 'helium10'
+      ? `<span class="tag tag-sales">30d units: ${fmtInt(p.units30d)}</span><span class="tag tag-sales">30d revenue: ${fmtUsd(p.revenue30d)}</span>`
+      : `<span class="tag tag-none">30d sales: unavailable</span>`;
+    return `
+      <div class="card product-card">
+        <img class="card-img" src="${esc(p.imageUrl || (p.imageId ? 'https://m.media-amazon.com/images/I/' + p.imageId + '._AC_UL640_.jpg' : ''))}" alt="">
+        <div class="card-title"><a href="${esc(p.amazonUrl || '#')}" target="_blank">${esc(short(p.title, 92) || p.asin || 'Untitled product')}</a></div>
+        <div class="tags">
+          <span class="tag">ASIN: ${esc(p.asin || 'N/A')}</span>
+          <span class="tag">${num(p.rating) == null ? 'No rating' : Number(p.rating).toFixed(1) + '★'}</span>
+          <span class="tag">${fmtInt(p.reviewCount)} reviews</span>
+          ${sales}
+          ${num(p.bsr) != null ? `<span class="tag tag-bsr">BSR ${fmtInt(p.bsr)}</span>` : ''}
+          ${num(p.reviewVelocity) != null ? `<span class="tag tag-bsr">+${fmtInt(p.reviewVelocity)} rev/30d</span>` : ''}
+        </div>
+      </div>`;
+  }
+
+  function severityLabel(n) {
+    n = Number(n) || 1;
+    if (n >= 3) return 'Severity 3';
+    if (n === 2) return 'Severity 2';
+    return 'Severity 1';
+  }
+
+  function quotes(theme) {
+    const qs = Array.isArray(theme.exampleQuotes) ? theme.exampleQuotes : [];
+    return qs.slice(0, 3).map(q => `
+      <blockquote>
+        <p>${esc(q.quote)}</p>
+        <footer>${esc(q.asin || 'ASIN N/A')} · ${num(q.stars) == null ? 'Stars N/A' : esc(q.stars) + '★'}</footer>
+      </blockquote>`).join('');
+  }
+
+  function themeCard(theme, kind, top) {
+    const width = Math.max(5, Math.round(((num(theme.mentions) || 0) / top) * 100));
+    const affected = Array.isArray(theme.affectedAsins) ? theme.affectedAsins.length : (num(theme.productCount) || 0);
+    const severity = kind === 'red' ? `<span class="tag tag-red">${severityLabel(theme.severity)}</span>` : '';
+    return `
+      <div class="card theme-card ${kind}">
+        <div class="theme-head">
+          <div class="theme-name">${esc(theme.theme || 'Untitled theme')}</div>
+          <span class="tag">${fmtInt(theme.mentions)} mentions</span>
+        </div>
+        <div class="theme-desc">${esc(theme.description || '')}</div>
+        <div class="bar-wrap"><div class="bar ${kind}" style="width:${width}%"></div></div>
+        <div class="meta">
+          <span class="tag">${fmtInt(theme.productCount ?? affected)} product${Number(theme.productCount ?? affected) === 1 ? '' : 's'}</span>
+          ${severity}
+          ${theme.demandValidated && theme.keyword ? `<span class="tag tag-kw">🔍 "${esc(theme.keyword)}" · ${fmtInt(theme.searchVolume)}/mo</span>` : ''}
+        </div>
+        ${quotes(theme)}
+      </div>`;
+  }
+
+  function list(items) {
+    const arr = Array.isArray(items) ? items.filter(Boolean) : [];
+    return arr.length ? `<ul>${arr.map(i => `<li>${esc(i)}</li>`).join('')}</ul>` : '<p class="theme-desc">No items available.</p>';
+  }
+
+  let html = `
+    <div class="header">
+      <h1>Review Research: <span>${esc(D.keyword || 'Untitled keyword')}</span></h1>
+      <div class="sub">Generated ${esc(D.date || '')} · ${fmtInt(totalReviews)} reviews across ${fmtInt(covered)} of ${fmtInt(products.length || 10)} products</div>
+    </div>
+
+    <div class="summary-bar">
+      <div class="stat"><div class="label">Reviews Analyzed</div><div class="value">${fmtInt(totalReviews)}</div><div class="hint">${fmtInt(totals.critical)} critical · ${fmtInt(totals.positive)} positive</div></div>
+      <div class="stat"><div class="label">Products Covered</div><div class="value">${fmtInt(covered)}</div><div class="hint">${fmtInt(products.length || 10)} products in strip</div></div>
+      <div class="stat"><div class="label">Complaint Themes</div><div class="value" style="color:#ff3b30">${fmtInt(complaints.length)}</div><div class="hint">ranked by ${hasSales ? 'sales-weighted mentions' : 'mentions'}</div></div>
+      <div class="stat"><div class="label">Praise Themes</div><div class="value" style="color:#34c759">${fmtInt(praises.length)}</div><div class="hint">${hasSales ? 'Helium 10 sales present' : 'sales unavailable'}</div></div>
+    </div>
+
+    ${verdict ? `
+    <div class="section">
+      <div class="verdict ${vclass}">
+        <div class="v-call">${esc(vcall || '—')}</div>
+        <div class="v-reasons"><ul>${(verdict.reasons || []).map(r => `<li>${esc(r)}</li>`).join('')}</ul></div>
+      </div>
+    </div>` : ''}
+
+    ${market ? `
+    <div class="section">
+      <div class="sec-title"><span>Market</span><span class="pill pill-dark">Helium 10 Xray</span></div>
+      <div class="summary-bar">
+        <div class="stat"><div class="label">30-Day Revenue</div><div class="value">${fmtUsd(market.totalRevenue30d)}</div><div class="hint">top ${fmtInt(products.length)} listings</div></div>
+        <div class="stat"><div class="label">30-Day Units</div><div class="value">${fmtInt(market.totalUnits30d)}</div></div>
+        <div class="stat"><div class="label">Price Spread</div><div class="value">${fmtUsd(market.priceLow)}–${fmtUsd(market.priceHigh)}</div></div>
+        <div class="stat"><div class="label">Weak Competitors</div><div class="value">${fmtInt(market.weakCompetitorCount)}</div><div class="hint">low reviews / rating</div></div>
+      </div>
+      ${market.note ? `<p class="muted">${esc(market.note)}</p>` : ''}
+    </div>` : ''}
+
+    <div class="section">
+      <div class="sec-title"><span>Opportunity Brief</span><span class="pill pill-dark">start here</span></div>
+      <div class="brief">
+        <div class="card"><div class="theme-name">Must-Fix</div>${list(opp.mustFix)}</div>
+        <div class="card"><div class="theme-name">Must-Keep</div>${list(opp.mustKeep)}</div>
+        <div class="angle"><strong>Differentiation angle:</strong> ${esc(opp.angle || 'No angle available.')}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="sec-title"><span>Products</span><span class="pill pill-dark">sorted by 30d sales</span></div>
+      <div class="strip">${sortedProducts.length ? sortedProducts.map(productCard).join('') : '<div class="empty">No products available.</div>'}</div>
+    </div>
+
+    <div class="section">
+      <div class="two-col">
+        <div>
+          <div class="sec-title"><span>Complaints</span><span class="pill pill-red">${fmtInt(complaints.length)} themes</span></div>
+          <div class="theme-list">${complaints.length ? complaints.map(t => themeCard(t, 'red', topComplaint)).join('') : '<div class="empty">No complaint themes found.</div>'}</div>
+        </div>
+        <div>
+          <div class="sec-title"><span>Praises</span><span class="pill pill-green">${fmtInt(praises.length)} themes</span></div>
+          <div class="theme-list">${praises.length ? praises.map(t => themeCard(t, 'green', topPraise)).join('') : '<div class="empty">No praise themes found.</div>'}</div>
+        </div>
+      </div>
+    </div>
+
+    ${keywords && ((keywords.gaps && keywords.gaps.length) || (keywords.top && keywords.top.length)) ? `
+    <div class="section">
+      <div class="sec-title"><span>Launch Keywords</span><span class="pill pill-dark">Cerebro</span></div>
+      <table class="kw-table">
+        <tr><th>Keyword</th><th>Search vol / mo</th><th>Best competitor rank</th></tr>
+        ${((keywords.gaps && keywords.gaps.length ? keywords.gaps : keywords.top) || []).slice(0, 12).map(k => {
+          const vals = k.ranks ? Object.values(k.ranks).filter(v => v != null) : [];
+          const best = vals.length ? Math.min(...vals) : null;
+          return `<tr><td>${esc(k.phrase)}</td><td>${fmtInt(k.searchVolume)}</td><td>${best != null && isFinite(best) ? '#' + best : (k.why ? esc(k.why) : '—')}</td></tr>`;
+        }).join('')}
+      </table>
+    </div>` : ''}
+
+    <div class="footer">
+      <strong>Grounding:</strong> Themes and quotes should come only from reviews-raw.json. Products with no fetchable reviews remain in the strip but do not contribute to theme counts.<br>
+      <strong>Sales source:</strong> ${hasSales ? 'At least one product includes Helium 10 Xray 30-day sales/revenue. Null sales are treated as zero for weighting.' : 'Helium 10 Xray sales were unavailable; report ranks themes by mentions and product coverage.'}<br>
+      <strong>Data sources:</strong> Xray ${hasSales ? 'present' : 'absent'} · Cerebro ${keywords ? 'present' : 'absent'} · H10 lookups used: ${num(D.h10LookupsUsed) != null ? fmtInt(D.h10LookupsUsed) : 0}/3.
+    </div>`;
+
+  document.getElementById('app').innerHTML = html;
+})();
+</script>
+</body>
+</html>
