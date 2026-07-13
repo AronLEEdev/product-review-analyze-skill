@@ -25,10 +25,13 @@ All outputs go into a run directory, e.g.
 | `reviews-map.json` | Phase 3 map | Per-product complaint and praise themes |
 | `reviews.js` | Phase 3 reduce | `window.__REVIEW_DATA__ = {...}` — loaded by the template |
 | `report.html` | **one-time copy** | Copy of the repo-fetched template, copied and never regenerated |
+| `dossier/` | Phase 5 (optional) | Combined Discovery+Cost+Review dossier — reuses the three data files, fetches `dossier.html` |
 
-**This skill is a single file.** A user only needs `SKILL.md`. The report
-renderer is fetched from this skill's repo on first run and saved into the run
-directory as `report.html`.
+**This skill is a single file.** A user only needs `SKILL.md`. Two renderers are
+fetched from this skill's repo on first run and saved into the run directory:
+`report.html` (the review report) and, when the optional Phase 5 runs,
+`dossier/dossier.html` (the combined three-phase dossier). Both are static
+templates — the HTML is never regenerated, so it costs zero tokens per run.
 
 ## Preconditions & setup (read once)
 
@@ -601,6 +604,84 @@ JSON.stringify({
 ```
 
 Take **one** screenshot of the finished report to share with the user — no more.
+
+## Phase 5 — Combined product dossier (optional, terminal)
+
+The review skill is the **last** of the three-skill FBA pipeline (discovery →
+cost → review), so it also assembles the **one-page dossier** that stitches all
+three phases together — so the user reads a single report instead of hunting
+across three. It **reuses the three skills' data files verbatim; nothing is
+recomputed** (zero LLM tokens — the fused verdict is computed client-side by the
+template). Run this only when a sibling **cost** run exists for the same product.
+
+**Inputs it looks for** (all produced by the pipeline; each is optional except
+this run's `reviews.js`):
+- `reviews.js` — this run (`window.__REVIEW_DATA__`). Required.
+- `<keyword>/results.js` — the cost run (`window.__FBA_DATA__`), from
+  `product-cost-analyze-for-fba`. The review run dir is conventionally
+  `<keyword>-reviews/`, so the cost run is the sibling `<keyword>/`.
+- `opportunities.js` — a discovery run (`window.__DISCOVERY_DATA__`) from
+  `product-opportunity-finder`, if one exists. The dossier renders cost+review
+  only when it's absent.
+
+### 5.1 Assemble the dossier directory
+
+```bash
+DOSSIER="<review-run>/dossier"
+mkdir -p "$DOSSIER"
+cp "<review-run>/reviews.js" "$DOSSIER/reviews.js"
+[ -f "<cost-run>/results.js" ] && cp "<cost-run>/results.js" "$DOSSIER/results.js"
+```
+
+### 5.2 Discovery slice (optional)
+
+If a discovery `opportunities.js` is available, extract the **one** niche row for
+this product and write it as `window.__DISCOVERY_ITEM__` (the single niche object
++ the run's `category`/`date`). Match by `nextSteps.reviewSkillKeyword` (fallback:
+fuzzy match on `niche`). Skip this file entirely if no discovery data exists.
+
+```bash
+node -e '
+const fs=require("fs");
+const opp=process.argv[1], kw=process.argv[2], out=process.argv[3];
+const d=JSON.parse(fs.readFileSync(opp,"utf8").replace(/^window.__DISCOVERY_DATA__ = /,"").replace(/;\s*$/,""));
+const all=[...(d.shortlist||[]),...(d.runnersUp||[])];
+const n=all.find(x=>((x.nextSteps||{}).reviewSkillKeyword||"").toLowerCase()===kw.toLowerCase())
+       ||all.find(x=>(x.niche||"").toLowerCase().includes(kw.toLowerCase()));
+if(!n){ console.error("no matching niche; skipping discovery.js"); process.exit(0); }
+fs.writeFileSync(out,"window.__DISCOVERY_ITEM__ = "+JSON.stringify(Object.assign({category:d.category,date:d.date},n),null,2)+";");
+console.log("wrote discovery.js for:",n.niche);
+' "<opportunities.js path>" "<keyword>" "$DOSSIER/discovery.js"
+```
+
+### 5.3 Fetch the template, serve, open
+
+The renderer is fetched from this skill's repo on first run (like `report.html`).
+It loads `discovery.js` · `results.js` · `reviews.js` via `<script>` tags and
+must be served over http (a `file://` URL can't load the sub-resources).
+
+```bash
+[ -f "$DOSSIER/dossier.html" ] || curl -fsSL \
+  https://raw.githubusercontent.com/AronLEEdev/product-review-analyze-skill/main/dossier.html \
+  -o "$DOSSIER/dossier.html"
+python3 -m http.server 7870 --directory "$DOSSIER" &
+```
+
+Then `navigate` to `http://localhost:7870/dossier.html`. The template computes a
+**fused verdict** — `BUILD` (review GO + discovery score ≥ 70 + best net margin ≥
+20%), `TEST` (WATCH, or attractive-but-caveated), or `PASS` (review SKIP or best
+margin < 10%) — then renders a snapshot row and three stacked sections
+(Discovery · Cost · Review). Any missing data file degrades gracefully. It is
+**null-safe**: values are filtered with `num()` before formatting, so nullable
+metrics render `—`, never a phantom `$0` (see the `Number(null)===0` trap).
+
+Verify with one DOM-count probe, then take **one** screenshot to share:
+
+```js
+JSON.stringify({ verdict:(document.querySelector('.call')||{}).textContent,
+  tiles:document.querySelectorAll('.tile').length,
+  sections:document.querySelectorAll('section').length })
+```
 
 ## Error handling (no fallback)
 

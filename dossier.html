@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Product Dossier</title>
+<style>
+  :root{
+    --bg:#f4f4f5; --panel:#fff; --ink:#18181b; --muted:#71717a; --line:#e4e4e7;
+    --accent:#e8892b; --green:#15803d; --greenbg:#dcfce7; --amber:#b45309; --amberbg:#fef3c7;
+    --red:#b91c1c; --redbg:#fee2e2; --blue:#1d4ed8; --chip:#f4f4f5;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#0d0d0f; --panel:#18181b; --ink:#f4f4f5; --muted:#a1a1aa; --line:#27272a;
+      --accent:#f5a623; --green:#4ade80; --greenbg:#14331f; --amber:#fbbf24; --amberbg:#3a2c07;
+      --red:#f87171; --redbg:#3a1414; --blue:#93b4ff; --chip:#27272a; }
+  }
+  :root[data-theme="dark"]{ --bg:#0d0d0f; --panel:#18181b; --ink:#f4f4f5; --muted:#a1a1aa; --line:#27272a; --accent:#f5a623; --green:#4ade80; --greenbg:#14331f; --amber:#fbbf24; --amberbg:#3a2c07; --red:#f87171; --redbg:#3a1414; --blue:#93b4ff; --chip:#27272a; }
+  :root[data-theme="light"]{ --bg:#f4f4f5; --panel:#fff; --ink:#18181b; --muted:#71717a; --line:#e4e4e7; --accent:#e8892b; --green:#15803d; --greenbg:#dcfce7; --amber:#b45309; --amberbg:#fef3c7; --red:#b91c1c; --redbg:#fee2e2; --blue:#1d4ed8; --chip:#f4f4f5; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 20px 64px}
+  a{color:var(--blue);text-decoration:none}
+  /* Header */
+  header{background:#0f0f11;color:#fff;padding:34px 0 30px;margin-bottom:22px}
+  header .wrap{padding-top:0;padding-bottom:0}
+  .eyebrow{color:var(--accent);font-weight:700;letter-spacing:.08em;text-transform:uppercase;font-size:12px}
+  h1{margin:6px 0 4px;font-size:30px;line-height:1.15}
+  h1 .kw{color:var(--accent)}
+  .sub{color:#a1a1aa;font-size:13px}
+  .verdict{display:flex;align-items:center;gap:20px;margin-top:22px;background:#000;border:1px solid #26262b;border-radius:14px;padding:20px 24px}
+  .verdict .call{font-size:34px;font-weight:800;letter-spacing:-.01em;padding:2px 16px;border-radius:10px;white-space:nowrap}
+  .call.build{background:var(--greenbg);color:var(--green)}
+  .call.test{background:var(--amberbg);color:var(--amber)}
+  .call.pass{background:var(--redbg);color:var(--red)}
+  .verdict .rationale{color:#e4e4e7;font-size:15px}
+  .verdict .rationale b{color:#fff}
+  /* Snapshot */
+  .tiles{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:-8px 0 26px}
+  @media(max-width:860px){.tiles{grid-template-columns:repeat(3,1fr)}}
+  @media(max-width:520px){.tiles{grid-template-columns:repeat(2,1fr)}}
+  .tile{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px}
+  .tile .lbl{font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .tile .val{font-size:22px;font-weight:750;margin-top:3px;line-height:1.1}
+  .tile .foot{font-size:11px;color:var(--muted);margin-top:2px}
+  /* Sections */
+  section{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin-bottom:20px}
+  .sh{display:flex;align-items:baseline;gap:12px;margin:0 0 14px}
+  .sh .n{width:26px;height:26px;flex:none;border-radius:50%;background:var(--accent);color:#0f0f11;font-weight:800;font-size:14px;display:grid;place-items:center}
+  .sh h2{margin:0;font-size:19px}
+  .sh .src{margin-left:auto;font-size:11px;color:var(--muted)}
+  .why{color:var(--ink);margin:0 0 14px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+  .chip{background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:12.5px}
+  .chip b{color:var(--accent)}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
+  th{font-size:11px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);font-weight:600}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .badge{display:inline-block;background:var(--accent);color:#0f0f11;font-weight:800;font-size:11px;border-radius:6px;padding:1px 6px;margin-right:6px}
+  .pos{color:var(--green);font-weight:700} .neg{color:var(--red);font-weight:700}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr}}
+  .theme{border:1px solid var(--line);border-left:3px solid var(--red);border-radius:10px;padding:11px 13px;margin-bottom:10px}
+  .theme.green{border-left-color:var(--green)}
+  .theme .t{font-weight:700;display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+  .theme .d{color:var(--muted);font-size:13px;margin-top:3px}
+  .theme .kwchip{display:inline-block;margin-top:7px;background:var(--chip);border:1px solid var(--line);border-radius:999px;padding:2px 9px;font-size:11.5px}
+  .theme .kwchip b{color:var(--accent)}
+  .mentions{font-size:11.5px;color:var(--muted);white-space:nowrap}
+  ul.brief{margin:6px 0 0;padding-left:18px} ul.brief li{margin-bottom:6px}
+  .angle{background:var(--amberbg);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-top:12px;font-size:13.5px}
+  .mkt{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:12px}
+  @media(max-width:620px){.mkt{grid-template-columns:repeat(2,1fr)}}
+  .reasons li{margin-bottom:6px}
+  .foot-note{color:var(--muted);font-size:12px;text-align:center;margin-top:26px}
+  h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 6px}
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="discovery.js"></script>
+<script src="results.js"></script>
+<script src="reviews.js"></script>
+<script>
+(function(){
+  var D = window.__DISCOVERY_ITEM__ || {};
+  var C = window.__FBA_DATA__ || {};
+  var R = window.__REVIEW_DATA__ || {};
+  var m = (D.metrics)||{};
+  var mk = (R.market)||{};
+  var surv = (C.survivors)||[];
+
+  // ---- helpers ----
+  function num(v){ return (v==null||v==='')?null:(isFinite(+v)?+v:null); }
+  function money(v){ v=num(v); if(v==null) return '—';
+    if(Math.abs(v)>=1e6) return '$'+(v/1e6).toFixed(2).replace(/\.?0+$/,'')+'M';
+    if(Math.abs(v)>=1e3) return '$'+(v/1e3).toFixed(1).replace(/\.0$/,'')+'k';
+    return '$'+Math.round(v).toLocaleString(); }
+  function moneyFull(v){ v=num(v); return v==null?'—':'$'+(+v).toLocaleString(undefined,{maximumFractionDigits:2}); }
+  function n0(v){ v=num(v); return v==null?'—':Math.round(v).toLocaleString(); }
+  function pct(v){ v=num(v); return v==null?'—':v.toFixed(1)+'%'; }
+  function esc(s){ return (s==null?'':String(s)).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];}); }
+  function el(h){ var d=document.createElement('div'); d.innerHTML=h; return d.firstElementChild; }
+
+  // ---- fused verdict ----
+  var bestMargin = surv.length ? Math.max.apply(null, surv.map(function(s){return num(s.netMarginAfterPPC)||-999;})) : null;
+  var reviewCall = ((R.verdict||{}).call || '').toUpperCase();
+  var score = num(D.score);
+  var fused, cls;
+  if(reviewCall==='SKIP' || (bestMargin!=null && bestMargin<10)){ fused='PASS'; cls='pass'; }
+  else if(reviewCall==='GO' && (score==null||score>=70) && (bestMargin==null||bestMargin>=20)){ fused='BUILD'; cls='build'; }
+  else { fused='TEST'; cls='test'; }
+  var rationale = 'A <b>'+esc(D.label||'—')+'</b> niche (score '+ (score==null?'—':score) +') · best net margin <b>'+pct(bestMargin)+
+    '</b> · review verdict <b>'+esc(reviewCall||'—')+'</b>. '+
+    (fused==='BUILD' ? 'Strong across all three phases — worth committing to.' :
+     fused==='TEST'  ? 'Attractive economics but a real caveat (competition or product risk) — validate before committing.' :
+                       'The numbers don\'t support entry.');
+
+  // ---- snapshot tiles ----
+  var tiles = [
+    ['Niche score', (score==null?'—':score), esc(D.label||'')],
+    ['Core kw demand', n0(m.searchVolume)+'/mo', esc((D.nextSteps&&D.nextSteps.reviewSkillKeyword)||'search volume')],
+    ['Market 30d rev', money(mk.totalRevenue30d), 'top listings'],
+    ['Best net margin', pct(bestMargin), (surv.length? surv.filter(function(s){return num(s.netProfitAfterPPC)>0;}).length+' of '+((surv.length)+((C.eliminated||[]).length))+' profitable':'')],
+    ['Price band', (mk.priceLow!=null? moneyFull(mk.priceLow)+'–'+moneyFull(mk.priceHigh) : '—'), 'market spread'],
+    ['Review verdict', esc(reviewCall||'—'), 'Helium 10']
+  ];
+  var tilesHtml = tiles.map(function(t){ return '<div class="tile"><div class="lbl">'+t[0]+'</div><div class="val">'+t[1]+'</div><div class="foot">'+t[2]+'</div></div>'; }).join('');
+
+  // ---- section 1: discovery ----
+  var discChips = [
+    m.searchVolume!=null?'<span class="chip">Search volume <b>'+n0(m.searchVolume)+'</b></span>':'',
+    m.iqScore!=null?'<span class="chip">Cerebro IQ <b>'+n0(m.iqScore)+'</b></span>':'',
+    m.cpr!=null?'<span class="chip">CPR <b>'+n0(m.cpr)+'</b></span>':'',
+    m.medRevenue30d!=null?'<span class="chip">Median rev <b>'+money(m.medRevenue30d)+'</b></span>':'',
+    m.priceLow!=null?'<span class="chip">Price <b>'+moneyFull(m.priceLow)+'–'+moneyFull(m.priceHigh)+'</b></span>':''
+  ].join('');
+  var exRows = (D.exampleProducts||[]).map(function(p){
+    return '<tr><td>'+esc(p.asin)+'</td><td>'+esc((p.title||'').slice(0,52))+'</td><td class="num">'+moneyFull(p.price)+'</td><td class="num">'+money(p.revenue30d)+'/mo</td></tr>';
+  }).join('');
+  var sec1 = '<section><div class="sh"><div class="n">1</div><h2>Discovery — why this niche</h2><div class="src">score '+(score==null?'—':score)+' · '+esc(D.label||'')+'</div></div>'+
+    '<p class="why">'+esc(D.why)+'</p>'+
+    '<div class="chips">'+discChips+'</div>'+
+    (exRows?'<h3>Example listings (Black Box)</h3><table><thead><tr><th>ASIN</th><th>Title</th><th class="num">Price</th><th class="num">Rev</th></tr></thead><tbody>'+exRows+'</tbody></table>':'')+
+    '</section>';
+
+  // ---- section 2: cost ----
+  var costRows = surv.slice(0,6).map(function(s){
+    var margin=num(s.netMarginAfterPPC);
+    return '<tr><td>'+(s.badge?'<span class="badge">#'+s.badge+'</span>':'')+esc((s.title||s.asin||'').slice(0,46))+'</td>'+
+      '<td class="num">'+moneyFull(s.price)+'</td>'+
+      '<td class="num '+(margin>=0?'pos':'neg')+'">'+pct(margin)+'</td>'+
+      '<td class="num">'+moneyFull(s.netProfitAfterPPC)+'</td>'+
+      '<td class="num">'+money(s.monthlyNetAfterPPC)+'/mo</td></tr>';
+  }).join('');
+  var elimN=(C.eliminated||[]).length;
+  var a=C.assumptions||{};
+  var sec2 = '<section><div class="sh"><div class="n">2</div><h2>Cost — profitability</h2><div class="src">source: results.js</div></div>'+
+    '<p class="why">'+esc(C.marketInsight||'')+'</p>'+
+    '<table><thead><tr><th>Product</th><th class="num">Price</th><th class="num">Net margin</th><th class="num">Net/unit</th><th class="num">Monthly net</th></tr></thead><tbody>'+costRows+'</tbody></table>'+
+    (elimN?'<div class="chips" style="margin-top:12px"><span class="chip">'+elimN+' eliminated (unprofitable)</span></div>':'')+
+    (a.ppcAcos!=null?'<p style="font-size:11.5px;color:var(--muted);margin:10px 0 0">Assumptions: '+Math.round(a.ppcAcos*100)+'% ACoS · '+Math.round(a.returnRate*100)+'% returns · '+Math.round(a.referralPct*100)+'% referral · $'+a.headShipPerUnit+'/unit freight · ¥'+a.exchangeRate+'/$1.</p>':'')+
+    '</section>';
+
+  // ---- section 3: review ----
+  var mktTiles = (mk && (mk.totalRevenue30d!=null||mk.priceLow!=null)) ? '<div class="mkt">'+
+    '<div class="tile"><div class="lbl">30-day revenue</div><div class="val">'+money(mk.totalRevenue30d)+'</div><div class="foot">top listings</div></div>'+
+    '<div class="tile"><div class="lbl">30-day units</div><div class="val">'+n0(mk.totalUnits30d)+'</div></div>'+
+    '<div class="tile"><div class="lbl">Price spread</div><div class="val">'+(mk.priceLow!=null?moneyFull(mk.priceLow)+'–'+moneyFull(mk.priceHigh):'—')+'</div></div>'+
+    '<div class="tile"><div class="lbl">Weak competitors</div><div class="val">'+n0(mk.weakCompetitorCount)+'</div><div class="foot">low reviews / rating</div></div>'+
+    '</div>' : '';
+
+  function themeCard(t,green){
+    var sev = (!green && t.severity)? ' · sev '+t.severity : '';
+    var kw = (t.keyword)? '<span class="kwchip">'+esc(t.keyword)+' · <b>'+n0(t.searchVolume)+'/mo</b></span>' : '';
+    return '<div class="theme'+(green?' green':'')+'"><div class="t"><span>'+esc(t.theme)+'</span><span class="mentions">'+n0(t.mentions)+' mentions'+sev+'</span></div>'+
+      '<div class="d">'+esc(t.description)+'</div>'+kw+'</div>';
+  }
+  var complaints = (R.complaintThemes||[]).slice(0,4).map(function(t){return themeCard(t,false);}).join('');
+  var praises = (R.praiseThemes||[]).slice(0,4).map(function(t){return themeCard(t,true);}).join('');
+
+  var op = R.opportunity||{};
+  var mustFix = (op.mustFix||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('');
+  var mustKeep = (op.mustKeep||[]).map(function(x){return '<li>'+esc(x)+'</li>';}).join('');
+  var gaps = ((R.keywords||{}).gaps||[]).map(function(k){
+    return '<tr><td>'+esc(k.phrase)+'</td><td class="num">'+n0(k.searchVolume)+'/mo</td><td>'+esc(k.why||'')+'</td></tr>';
+  }).join('');
+  var reasons = ((R.verdict||{}).reasons||[]).map(function(r){return '<li>'+esc(r)+'</li>';}).join('');
+
+  var sec3 = '<section><div class="sh"><div class="n">3</div><h2>Review — buyer voice &amp; market</h2><div class="src">source: reviews.js · '+((R.totals||{}).reviewsAnalyzed||'—')+' reviews</div></div>'+
+    mktTiles+
+    (reasons?'<h3>Verdict rationale — '+esc(reviewCall)+'</h3><ul class="brief reasons">'+reasons+'</ul>':'')+
+    '<div class="grid2" style="margin-top:12px"><div><h3>Top complaints</h3>'+complaints+'</div><div><h3>What buyers love</h3>'+praises+'</div></div>'+
+    (mustFix||mustKeep?'<div class="grid2" style="margin-top:6px"><div><h3>Must-fix</h3><ul class="brief">'+mustFix+'</ul></div><div><h3>Must-keep</h3><ul class="brief">'+mustKeep+'</ul></div></div>':'')+
+    (op.angle?'<div class="angle"><b>Angle:</b> '+esc(op.angle)+'</div>':'')+
+    (gaps?'<h3>Launch keyword gaps</h3><table><thead><tr><th>Keyword</th><th class="num">Volume</th><th>Why it\'s open</th></tr></thead><tbody>'+gaps+'</tbody></table>':'')+
+    '</section>';
+
+  // ---- assemble ----
+  var header = '<header><div class="wrap">'+
+    '<div class="eyebrow">Product Dossier · '+esc(D.category||'')+'</div>'+
+    '<h1>'+esc(D.niche||C.keyword||'Product')+'</h1>'+
+    '<div class="sub">Discovery '+esc(D.date||'')+' · Cost '+esc(C.date||'')+' · Review '+esc(R.date||'')+' · all three phases combined</div>'+
+    '<div class="verdict"><div class="call '+cls+'">'+fused+'</div><div class="rationale">'+rationale+'</div></div>'+
+    '</div></header>';
+
+  var body = '<div class="wrap"><div class="tiles">'+tilesHtml+'</div>'+sec1+sec2+sec3+
+    '<div class="foot-note">Generated from the three skills\' data files (discovery.js · results.js · reviews.js) — no data recomputed. Helium 10 lookups used: '+((R.h10LookupsUsed!=null)?R.h10LookupsUsed:'—')+'.</div></div>';
+
+  document.getElementById('root').innerHTML = header + body;
+  document.title = 'Dossier — ' + (D.niche || C.keyword || 'Product');
+})();
+</script>
+</body>
+</html>
