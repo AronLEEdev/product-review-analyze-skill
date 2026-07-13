@@ -66,12 +66,40 @@ Tools used throughout:
 - Verify state with DOM **count** probes (e.g. `{reviewNodes, themes}`), not screenshots.
   Take at most **one** screenshot — the finished report — to share with the user.
 
+## Caching (14-day TTL — re-runs cost ~0 browser work)
+
+Amazon scraping, review-page fetches, and Helium 10 lookups are the slow, and (for
+Cerebro/Xray) **metered**, parts of a run. Cache each expensive artifact by keyword,
+14-day TTL, so re-running the same keyword reuses it instead of re-scraping.
+
+- **slug** = keyword lowercased, every run of non-alphanumerics → `-`
+  (`beeswax bread bag` → `beeswax-bread-bag`).
+- **Check** before an expensive phase; on a hit, copy it in and **skip that phase's
+  browser work**:
+  ```bash
+  CACHE=~/Documents/product-research/_cache/review
+  HIT=$(find "$CACHE" -name "<artifact>__<slug>.json" -mtime -14 2>/dev/null | head -1)
+  [ -n "$HIT" ] && cp "$HIT" "<run-dir>/<artifact>.json" && echo "CACHE HIT <artifact>"
+  ```
+- **Save** after the phase completes cleanly (only when it was NOT a cache hit):
+  ```bash
+  mkdir -p "$CACHE" && cp "<run-dir>/<artifact>.json" "$CACHE/<artifact>__<slug>.json"
+  ```
+
+Cached artifacts: **`products`** (Phase 1 — Amazon + Xray), **`keywords`** (Phase 1.6
+— Cerebro), **`reviews-raw`** (Phase 2). Never cache partial/hard-stopped data — write
+the cache only after the phase succeeds. A cached Helium 10 artifact counts as **0**
+lookups against the 3-per-run cap. To force a fresh pull, delete the cache file.
+
 ## Phase 1 — Amazon top 10 (Claude-in-Chrome MCP)
 
 Goal: capture the top ~10 Amazon listings for the keyword. If the Helium 10 Xray
 overlay/table is present on the search page, also capture each product's 30-day
 units sold and revenue. If Xray is absent, record `null` sales fields and
 `salesSource: "none"`; never fabricate sales.
+
+> **Cache first:** run the §Caching check for `products`. On a hit, load the cached
+> `products.json` (Xray sales included) and skip §1.1–1.5 entirely.
 
 ### 1.1 Browser setup
 
@@ -187,6 +215,9 @@ write it in **one or two `javascript_tool` calls**, no need to slice it into man
 pieces. (`imageId` is the Amazon image id; the report rebuilds the URL as
 `https://m.media-amazon.com/images/I/<imageId>._AC_UL640_.jpg`.)
 
+Then **save it to cache** (§Caching, artifact `products`) so re-runs skip Phase 1 —
+including the manual Xray step.
+
 ```json
 [
   {
@@ -217,6 +248,10 @@ pieces. (`imageId` is the Amazon image id; the report rebuilds the URL as
 > 3, **skip** it and note `H10 usage cap reached`. The flow below spends exactly **1**.
 > Record the final count as `h10LookupsUsed` in `reviews.js`.
 
+> **Cache first (saves a metered lookup):** run the §Caching check for `keywords`.
+> On a hit, load the cached `keywords.json`, **do not increment the counter**, and
+> skip the Cerebro run below.
+
 If Helium 10 is available and the counter is < 3:
 
 1. Pick the top **2–3 ASINs** by `revenue30d` (fallback `reviewCount` when no Xray).
@@ -240,89 +275,94 @@ Write `<run-dir>/keywords.json`:
 ]
 ```
 
+On success, **save `keywords.json` to cache** (§Caching, artifact `keywords`) so a
+re-run within 14 days spends **0** lookups.
+
 If Cerebro is unreachable, not logged in, or the cap is reached, write `keywords.json`
 as `[]` and note the reason; the run continues **review-only** (no demand validation,
-no Launch-Keywords section). **Never fabricate search volumes or ranks.**
+no Launch-Keywords section). **Never fabricate search volumes or ranks.** Do **not**
+cache an empty/`[]` result (it isn't a completed pull).
 
-## Phase 2 — Fetch reviews (Claude-in-Chrome MCP, no fallback)
+## Phase 2 — Fetch reviews (single same-origin pass; navigate fallback)
 
-Goal: fetch the most-helpful critical and positive reviews per ASIN.
+Goal: fetch the most-helpful critical and positive reviews for the **top ~5–6
+products by `reviewCount`** — those carry the themes; tiny listings add noise, not
+signal. **Depth:** page 1 only of each polarity by default (helpful-sorted page 1
+saturates the themes); add page 2 only for a `reviewCount > 5000` product whose
+themes look thin.
 
-For each product in `products.json`, navigate to both polarities:
+> **Cache (14-day):** before fetching, run the §Caching check for `reviews-raw`.
+> On a hit, load the cached `reviews-raw.json` and skip all browser work below.
 
-```text
-https://www.amazon.com/product-reviews/<ASIN>/?filterByStar=critical&sortBy=helpful&pageNumber=<N>
-https://www.amazon.com/product-reviews/<ASIN>/?filterByStar=positive&sortBy=helpful&pageNumber=<N>
+### 2.1 Primary — one eval, parser defined once (≈12 navigations → 1 call)
+
+Stay on any `www.amazon.com` page (the Phase-1 SERP is fine) and run **one**
+`javascript_tool` eval that `fetch()`es every review page **same-origin** and parses
+it with a single inline parser. Same trick Phase 1 uses for detail pages — ~10×
+cheaper than navigating to each page and re-pasting the extractor. Substitute the
+real top-5–6 ASIN array for `ASINS`:
+
+```js
+(async function(asins){
+  function parse(html){
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const txt = el => (el && el.textContent || '').replace(/\s+/g,' ').trim();
+    const stars = t => { const m=String(t||'').match(/([\d.]+)\s+out of\s+5/i); return m?parseFloat(m[1]):null; };
+    const helpful = t => { if(!t) return 0; if(/one person/i.test(t)) return 1; const m=t.replace(/,/g,'').match(/(\d+)/); return m?parseInt(m[1],10):0; };
+    return [...doc.querySelectorAll('[data-hook="review"]')].map(r => ({
+      stars: stars(txt(r.querySelector('[data-hook="review-star-rating"], [data-hook="cmps-review-star-rating"]'))),
+      title: txt(r.querySelector('[data-hook="review-title"]')).replace(/^\d(?:\.\d)?\s+out of\s+5\s+stars\s*/i,'').slice(0,90),
+      body: txt(r.querySelector('[data-hook="review-body"]')).slice(0,150),
+      verified: !!r.querySelector('[data-hook="avp-badge"]'),
+      helpfulVotes: helpful(txt(r.querySelector('[data-hook="helpful-vote-statement"]')))
+    })).filter(x => x.body).sort((a,b) => b.helpfulVotes - a.helpfulVotes).slice(0,8);
+  }
+  const out = {}; let blocked = false;
+  for (const asin of asins) {
+    out[asin] = { critical: [], positive: [] };
+    for (const pol of ['critical','positive']) {
+      try {
+        const url = 'https://www.amazon.com/product-reviews/'+asin+'/?filterByStar='+pol+'&sortBy=helpful&pageNumber=1';
+        const html = await (await fetch(url, { credentials:'include' })).text();
+        if (/api-services-support|not a robot|enter the characters you see below/i.test(html.slice(0,3000))) { blocked = true; continue; }
+        out[asin][pol] = parse(html);
+      } catch(e) {}
+    }
+  }
+  window.__RAW = out;
+  return JSON.stringify({ blocked, counts: Object.fromEntries(Object.entries(out).map(([a,v]) => [a, v.critical.length+'/'+v.positive.length])) });
+})(ASINS)
 ```
 
-**Depth (adaptive — saves ~⅔ of page loads):** fetch **page 1 only** of each polarity
-(≈10 reviews) by default. Fetch **page 2 only for high-volume products**
-(`reviewCount > 5000`). Helpful-sorted page 1 already saturates the themes.
+Then read `window.__RAW` back in 1–2 condensed slices (e.g.
+`JSON.stringify(window.__RAW['<asin>'])`) to build `reviews-raw.json` — never dump
+the whole object in one return if it exceeds the tool-output limit.
 
-**Batch each page in one call.** Run navigate → gate-probe → extract for a page inside
-a single `browser_batch` (the `navigate` action, then the two `javascript_tool` evals).
-That's ~4× fewer round-trips than separate calls.
+### 2.2 Fallback — per-page navigate (only if `blocked:true`)
 
-Review pages require the logged-in Amazon profile. If a login wall, CAPTCHA,
-verification interstitial, or unexpected "no reviews" gate appears, stop and ask the
-user to resolve it; do not substitute data from another source.
-
-### 2.1 Block/gate probe
-
-Run after navigation and before extraction:
+If the primary eval returns `blocked:true` (Amazon rate-limited the rapid fetches, or
+a login wall), fall back to navigating each page. For each ASIN/polarity, `browser_batch`
+a `navigate` to the review URL + this gate-probe + the same `parse` extractor (one page
+per call):
 
 ```js
 (function(){
   var bt = document.body ? document.body.innerText : '';
-  var blocked = /enter the characters you see below|not a robot|automated access|api-services-support/i.test(bt);
-  var signin = /^\s*(Amazon Sign-In|Sign-In)\s*$/i.test(document.title || '');
+  var blocked = /enter the characters you see below|not a robot|automated access|api-services-support/i.test(bt)
+             || /^\s*(Amazon Sign-In|Sign-In)\s*$/i.test(document.title || '');
   var reviewNodes = document.querySelectorAll('[data-hook="review"]').length;
-  var noReviews = reviewNodes === 0 && /no customer reviews|no reviews/i.test(bt);
-  return JSON.stringify({ blocked: blocked || signin, noReviews: noReviews, reviewNodes: reviewNodes });
+  return JSON.stringify({ blocked: blocked, noReviews: reviewNodes === 0 && /no customer reviews|no reviews/i.test(bt), reviewNodes: reviewNodes });
 })()
 ```
 
-`blocked:true` hard-stops until the user fixes the browser state. A real
-`noReviews:true` product stays in `products.json`, contributes zero reviews, and is
-excluded from theme mining. **Never return raw page text or the page URL from an eval**
-— the MCP content filter rejects evals that echo cookie/query-string/page text, so
-return only flags and counts (as above).
+If the gate-probe shows a CAPTCHA/sign-in, stop and ask the user to resolve it, then
+continue. A real `noReviews` product stays in `products.json`, contributes nothing, and
+decrements `productsCovered`.
 
-### 2.2 Extract reviews with eval
-
-Run this on each review page. It trims bodies to 150 chars and keeps only the **8
-most-helpful** reviews — enough for a theme plus a usable quote, at a fraction of the
-tokens. It returns review text only from the loaded page.
-
-```js
-(function(){
-  function txt(el){ return (el && el.textContent || '').replace(/\s+/g,' ').trim(); }
-  function stars(t){ const m = String(t||'').match(/([\d.]+)\s+out of\s+5/i); return m ? parseFloat(m[1]) : null; }
-  function helpful(t){
-    if (!t) return 0;
-    if (/one person/i.test(t)) return 1;
-    const m = t.replace(/,/g,'').match(/(\d+)/);
-    return m ? parseInt(m[1],10) : 0;
-  }
-  return JSON.stringify([...document.querySelectorAll('[data-hook="review"]')].map(r => ({
-    stars: stars(txt(r.querySelector('[data-hook="review-star-rating"], [data-hook="cmps-review-star-rating"]'))),
-    title: txt(r.querySelector('[data-hook="review-title"]')).replace(/^\d(?:\.\d)?\s+out of\s+5\s+stars\s*/i,'').slice(0,90),
-    body: txt(r.querySelector('[data-hook="review-body"]')).slice(0,150),
-    verified: !!r.querySelector('[data-hook="avp-badge"]'),
-    helpfulVotes: helpful(txt(r.querySelector('[data-hook="helpful-vote-statement"]')))
-  })).filter(x => x.body)
-    .sort((a,b) => b.helpfulVotes - a.helpfulVotes)
-    .slice(0,8));
-})()
-```
-
-If the trimmed result still exceeds the tool-output limit, stash it
-(`window.__R = […]`) and read it back as one condensed string in 1–2 slices, rather
-than returning many separate fields.
-
-If you fetched a 2nd page (high-volume product), merge it and de-duplicate within each
-ASIN/polarity by `stars + title + body`, then keep the ~8–16 most-helpful per polarity.
-Preserve Amazon's helpful order.
+> **Never return raw page text or the page URL from an eval** — the MCP content filter
+> rejects evals that echo cookie/query-string/page text. Return only flags, counts, and
+> trimmed review fields. If a 2nd page was fetched, de-duplicate per ASIN/polarity by
+> `stars+title+body` and keep the ~8–16 most-helpful, preserving Amazon's order.
 
 ### 2.3 Write reviews-raw.json
 
@@ -350,6 +390,9 @@ Preserve Amazon's helpful order.
   }
 }
 ```
+
+Then **save `reviews-raw.json` to cache** (§Caching, artifact `reviews-raw`) — only
+if Phase 2 completed without a `blocked` hard-stop.
 
 ## Phase 3 — Map-reduce review analysis
 
