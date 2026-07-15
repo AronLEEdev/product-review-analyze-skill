@@ -1,0 +1,11 @@
+{
+  "name": "product-review-analyze",
+  "displayName": "Product Review Analyze (Buyer Voice + Verdict)",
+  "version": "1.0.0",
+  "description": "Mine Amazon reviews into complaint/praise themes + a Helium 10 market layer → a GO/WATCH/SKIP verdict, and stitch all three phases into one combined dossier.",
+  "author": { "name": "Aron Lee", "url": "https://github.com/AronLEEdev" },
+  "homepage": "https://github.com/AronLEEdev/product-review-analyze-skill",
+  "repository": "https://github.com/AronLEEdev/product-review-analyze-skill",
+  "license": "MIT",
+  "keywords": ["amazon", "fba", "product-research", "review-mining", "helium10", "ecommerce", "claude-skill"]
+}
