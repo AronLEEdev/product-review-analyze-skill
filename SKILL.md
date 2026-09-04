@@ -27,8 +27,9 @@ All outputs go into a run directory, e.g.
 | `report.html` | **one-time copy** | Copy of the repo-fetched template, copied and never regenerated |
 | `dossier/` | Phase 5 (optional) | Combined Discovery+Cost+Review dossier — reuses the three data files, fetches `dossier.html` |
 
-**This skill is a single file.** A user only needs `SKILL.md`. Two renderers are
-fetched from this skill's repo on first run and saved into the run directory:
+**This skill is a single file.** A user only needs `SKILL.md`. Two renderers plus a
+small server are fetched from this skill's repo on first run and saved into the run
+directory (`serve-report.py` backs the reports' **Save as PDF** button):
 `report.html` (the review report) and, when the optional Phase 5 runs,
 `dossier/dossier.html` (the combined three-phase dossier). Both are static
 templates — the HTML is never regenerated, so it costs zero tokens per run.
@@ -621,8 +622,18 @@ report.
 [ -f "<run-dir>/report.html" ] || curl -fsSL \
   https://raw.githubusercontent.com/AronLEEdev/product-review-analyze-skill/main/report-template.html \
   -o "<run-dir>/report.html"
-python3 -m http.server 7860 --directory "<run-dir>" &
+curl -fsSL \
+  https://raw.githubusercontent.com/AronLEEdev/product-review-analyze-skill/main/serve-report.py \
+  -o "<run-dir>/serve-report.py"
+python3 "<run-dir>/serve-report.py" "<run-dir>" 7860 &
 ```
+
+> **PDF export.** The report carries a **Save as PDF** button. It downloads a real
+> (vector, selectable-text) PDF by calling this server's `/export.pdf` endpoint, which
+> renders the page with headless Chrome. If you serve the directory with plain
+> `python3 -m http.server` instead, the endpoint is absent and the button falls back to
+> the browser's print dialog — so both paths work, one is just nicer. `serve-report.py`
+> binds to 127.0.0.1 only and needs Chrome/Chromium/Edge installed to render.
 
 Then navigate Chrome through the MCP to:
 
@@ -707,7 +718,10 @@ must be served over http (a `file://` URL can't load the sub-resources).
 [ -f "$DOSSIER/dossier.html" ] || curl -fsSL \
   https://raw.githubusercontent.com/AronLEEdev/product-review-analyze-skill/main/dossier.html \
   -o "$DOSSIER/dossier.html"
-python3 -m http.server 7870 --directory "$DOSSIER" &
+curl -fsSL \
+  https://raw.githubusercontent.com/AronLEEdev/product-review-analyze-skill/main/serve-report.py \
+  -o "$DOSSIER/serve-report.py"
+python3 "$DOSSIER/serve-report.py" "$DOSSIER" 7870 &
 ```
 
 Then `navigate` to `http://localhost:7870/dossier.html`. The template computes a

@@ -75,6 +75,59 @@
   .reasons li{margin-bottom:6px}
   .foot-note{color:var(--muted);font-size:12px;text-align:center;margin-top:26px}
   h3{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin:16px 0 6px}
+
+/* ── PDF export / print ───────────────────────────────────────────── */
+.pdf-btn{position:fixed;right:22px;bottom:22px;z-index:9999;display:inline-flex;align-items:center;gap:8px;
+  background:#1d1d1f;color:#fff;border:0;border-radius:999px;padding:12px 20px;font:600 14px/1 inherit;
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;cursor:pointer;
+  box-shadow:0 4px 16px rgba(0,0,0,.28);transition:transform .12s ease,background .12s ease}
+.pdf-btn:hover{background:#000;transform:translateY(-1px)}
+.pdf-btn:active{transform:translateY(0)}
+.pdf-btn svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;
+  stroke-linecap:round;stroke-linejoin:round}
+@media print{
+  .pdf-btn,.no-print{display:none !important}
+  @page{size:A4;margin:12mm}
+  html,body{background:#fff !important}
+  /* keep the designed colours in the PDF */
+  *{-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important}
+  /* never split a card, tile or table row across pages */
+  section,.tile,.verdict,.brief,.chips,.grid2,.reasons{break-inside:avoid;page-break-inside:avoid}
+  tr,li{break-inside:avoid;page-break-inside:avoid}
+  /* never leave a heading stranded at the foot of a page */
+  .sh,.eyebrow,h1,h2,h3{break-after:avoid;page-break-after:avoid}
+  thead{display:table-header-group}
+  /* shadows render as grey mud in PDF */
+  section,.tile{box-shadow:none !important}
+  :root{--bg:#fff;--panel:#fff;--ink:#18181b;--muted:#52525b;--line:#d4d4d8;
+    --accent:#c2691a;--green:#15803d;--greenbg:#dcfce7;--amber:#b45309;--amberbg:#fef3c7;
+    --red:#b91c1c;--redbg:#fee2e2;--blue:#1d4ed8;--chip:#f4f4f5}
+  /* Document-style header: light ground, brand accents, no floating dark slab */
+  header{background:#fff !important;color:#18181b !important;padding:0 0 14px !important;
+    margin:0 0 20px !important;border-bottom:3px solid var(--accent) !important}
+  header .wrap{padding-left:0 !important;padding-right:0 !important}
+  header .eyebrow{color:var(--accent) !important}
+  header h1{color:#18181b !important}
+  header h1 .kw{color:var(--accent) !important}
+  header .sub{color:#52525b !important}
+  /* Verdict reads as a callout card, colour-keyed to the call */
+  .verdict{background:#fafafa !important;border:1px solid #e4e4e7 !important;
+    border-left:6px solid var(--accent) !important;border-radius:10px !important;
+    padding:16px 20px !important;margin:16px 0 4px !important}
+  .verdict:has(.call.build){border-left-color:#15803d !important;background:#f6fdf8 !important}
+  .verdict:has(.call.test){border-left-color:#b45309 !important;background:#fffdf5 !important}
+  .verdict:has(.call.pass){border-left-color:#b91c1c !important;background:#fff7f7 !important}
+  .verdict .rationale{color:#27272a !important}
+  .verdict .rationale b{color:#000 !important}
+  .call{border:1px solid rgba(0,0,0,.08) !important}
+  .call.build{background:#dcfce7 !important;color:#15803d !important}
+  .call.test{background:#fef3c7 !important;color:#b45309 !important}
+  .call.pass{background:#fee2e2 !important;color:#b91c1c !important}
+  .sh .n{background:var(--accent) !important;color:#0f0f11 !important}
+}
+.pdf-btn.busy{opacity:.75;pointer-events:none}
+.pdf-btn.busy svg{animation:pdfspin 1s linear infinite;transform-origin:50% 50%}
+@keyframes pdfspin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body>
@@ -212,6 +265,51 @@
   document.getElementById('root').innerHTML = header + body;
   document.title = 'Dossier — ' + (D.niche || C.keyword || 'Product');
 })();
+</script>
+<button class="pdf-btn no-print" onclick="exportPdf()" title="Save this report as a PDF">
+  <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+  <span class="pdf-label">Save as PDF</span>
+</button>
+<script>
+function pdfName(){
+  try{ var d=window.__DISCOVERY_ITEM__||window.__REVIEW_DATA__; if(d){var k=(d.keyword||d.category||d.niche||'report').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');return k+'-dossier-'+(d.date||'');} }catch(e){}
+  return (document.title||'report').replace(/[^A-Za-z0-9._-]+/g,'-');
+}
+function _setBtn(state){
+  var b=document.querySelector('.pdf-btn'); if(!b) return;
+  b.classList.toggle('busy', state==='busy');
+  b.querySelector('.pdf-label').textContent =
+    state==='busy' ? 'Rendering PDF\u2026' : (state==='print' ? 'Opening print\u2026' : 'Save as PDF');
+}
+/* Try the local export server first (real one-click download, vector text).
+   Falls back to the browser print dialog if that endpoint isn't available. */
+async function exportPdf(){
+  var name = pdfName();
+  var page = location.pathname.split('/').pop() || 'report.html';
+  _setBtn('busy');
+  try{
+    var r = await fetch('/export.pdf?page='+encodeURIComponent(page)+'&name='+encodeURIComponent(name),
+                        {cache:'no-store'});
+    if(r.ok && (r.headers.get('content-type')||'').indexOf('pdf')>-1){
+      var blob = await r.blob();
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name + '.pdf';
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(a.href); }, 4000);
+      _setBtn('idle');
+      return;
+    }
+  }catch(e){ /* server not running -> fall through */ }
+  _setBtn('print');
+  var original = document.title;
+  document.title = name;
+  window.print();
+  setTimeout(function(){ document.title = original; _setBtn('idle'); }, 1500);
+}
+window.addEventListener('keydown', function(e){
+  if((e.metaKey||e.ctrlKey) && e.key==='p'){ e.preventDefault(); exportPdf(); }
+});
 </script>
 </body>
 </html>
